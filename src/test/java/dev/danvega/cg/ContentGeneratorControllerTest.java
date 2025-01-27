@@ -6,18 +6,22 @@ import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.containsString;
 
 @WebMvcTest(ContentGeneratorController.class)
 @Import({
@@ -40,6 +44,9 @@ class ContentGeneratorControllerTest {
     @Autowired
     private ContentGeneratorService contentGeneratorService;
 
+    @Captor
+    private ArgumentCaptor<ContentGenerationResponse> responseCaptor;
+
     @BeforeEach
     void setUp() {
         reset(gitHubService, localFileService, templateEngine, contentGeneratorService);
@@ -57,25 +64,29 @@ class ContentGeneratorControllerTest {
         // Arrange
         String githubUrl = "https://github.com/user/repo";
         String generatedContent = "Generated content";
-        String renderedTemplate = "Rendered template";
+        int tokenCount = 2; // "Generated" and "content"
+        String byteCount = "16 B"; // Length of "Generated content"
+        ContentGenerationResponse response = new ContentGenerationResponse(generatedContent, tokenCount, byteCount);
 
         when(contentGeneratorService.generateContent(eq(githubUrl), eq(null)))
-                .thenReturn(generatedContent);
+                .thenReturn(response);
         doAnswer(invocation -> {
             StringOutput output = invocation.getArgument(2);
-            output.writeContent(renderedTemplate);
+            ContentGenerationResponse resp = invocation.getArgument(1);
+            output.writeContent("<textarea id=\"result\">" + resp.content() + "</textarea>");
             return null;
-        }).when(templateEngine).render(eq("result.jte"), any(), any(StringOutput.class));
+        }).when(templateEngine).render(eq("result.jte"), eq(response), any(StringOutput.class));
 
         // Act & Assert
         mockMvc.perform(post("/generate")
                         .param("githubUrl", githubUrl)
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED))
                 .andExpect(status().isOk())
-                .andExpect(content().string(renderedTemplate));
+                .andExpect(content().string(containsString("<textarea id=\"result\">" + generatedContent + "</textarea>")));
 
         verify(contentGeneratorService).generateContent(githubUrl, null);
-        verify(templateEngine).render(eq("result.jte"), any(), any(StringOutput.class));
+        verify(templateEngine).render(eq("result.jte"), responseCaptor.capture(), any(StringOutput.class));
+        assertEquals(response, responseCaptor.getValue());
     }
 
     @Test
@@ -83,25 +94,29 @@ class ContentGeneratorControllerTest {
         // Arrange
         String localPath = "/path/to/local/file";
         String generatedContent = "Generated content";
-        String renderedTemplate = "Rendered template";
+        int tokenCount = 2;
+        String byteCount = "16 B";
+        ContentGenerationResponse response = new ContentGenerationResponse(generatedContent, tokenCount, byteCount);
 
         when(contentGeneratorService.generateContent(eq(null), eq(localPath)))
-                .thenReturn(generatedContent);
+                .thenReturn(response);
         doAnswer(invocation -> {
             StringOutput output = invocation.getArgument(2);
-            output.writeContent(renderedTemplate);
+            ContentGenerationResponse resp = invocation.getArgument(1);
+            output.writeContent("<textarea id=\"result\">" + resp.content() + "</textarea>");
             return null;
-        }).when(templateEngine).render(eq("result.jte"), any(), any(StringOutput.class));
+        }).when(templateEngine).render(eq("result.jte"), eq(response), any(StringOutput.class));
 
         // Act & Assert
         mockMvc.perform(post("/generate")
                         .param("localPath", localPath)
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED))
                 .andExpect(status().isOk())
-                .andExpect(content().string(renderedTemplate));
+                .andExpect(content().string(containsString("<textarea id=\"result\">" + generatedContent + "</textarea>")));
 
         verify(contentGeneratorService).generateContent(null, localPath);
-        verify(templateEngine).render(eq("result.jte"), any(), any(StringOutput.class));
+        verify(templateEngine).render(eq("result.jte"), responseCaptor.capture(), any(StringOutput.class));
+        assertEquals(response, responseCaptor.getValue());
     }
 
     @Test

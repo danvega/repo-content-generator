@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import static dev.danvega.cg.util.CountUtils.countTokens;
+import static dev.danvega.cg.util.CountUtils.humanReadableByteCount;
+
 @Service
 public class ContentGeneratorService {
 
@@ -24,19 +27,25 @@ public class ContentGeneratorService {
         this.localFileService = localFileService;
     }
 
-    public String generateContent(String githubUrl, String localPath) throws Exception {
+    public ContentGenerationResponse generateContent(String githubUrl, String localPath) throws Exception {
         if (githubUrl != null && !githubUrl.isBlank()) {
             log.info("Processing GitHub URL: {}", githubUrl);
             String[] parts = githubUrl.split("/");
             String owner = parts[parts.length - 2];
             String repo = parts[parts.length - 1];
             ghService.downloadRepositoryContents(owner, repo);
-            return new String(Files.readAllBytes(Paths.get(outputDirectory, repo + ".md")));
+            String content = new String(Files.readAllBytes(Paths.get(outputDirectory, repo + ".md")));
+            int tokenCount = countTokens(content);
+            String byteCount = humanReadableByteCount(content);
+            return new ContentGenerationResponse(content, tokenCount, byteCount);
         } else if (localPath != null && !localPath.isBlank()) {
             log.info("Processing local path: {}", localPath);
             String outputName = Paths.get(localPath).getFileName().toString();
             localFileService.processLocalDirectory(localPath, outputName);
-            return new String(Files.readAllBytes(Paths.get(outputDirectory, outputName + ".md")));
+            String content = new String(Files.readAllBytes(Paths.get(outputDirectory, outputName + ".md")));
+            int tokenCount = countTokens(content);
+            String byteCount = humanReadableByteCount(content);
+            return new ContentGenerationResponse(content, tokenCount, byteCount);
         } else {
             throw new IllegalArgumentException("Either GitHub URL or local path must be provided");
         }
