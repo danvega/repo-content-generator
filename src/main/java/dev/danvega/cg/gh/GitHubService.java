@@ -1,6 +1,5 @@
 package dev.danvega.cg.gh;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -8,7 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.List;
 
@@ -22,27 +25,23 @@ public class GitHubService {
 
     private static final Logger log = LoggerFactory.getLogger(GitHubService.class);
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
     private final GitHubConfiguration config;
 
     /**
      * Constructs a new GithubService with the specified dependencies.
      *
-     * @param builder       The RestClient.Builder to use for creating the RestClient.
-     * @param objectMapper  The ObjectMapper to use for JSON processing.
-     * @param config       The GitHub configuration properties.
+     * @param builder The RestClient.Builder to use for creating the RestClient.
+     * @param config  The GitHub configuration properties.
      */
     public GitHubService(RestClient.Builder builder,
-                         ObjectMapper objectMapper,
                          GitHubConfiguration config) {
         this.config = config;
         this.restClient = builder
                 .baseUrl("https://api.github.com")
                 .defaultHeader("Accept", "application/vnd.github+json")
-                .defaultHeader("X-GitHub-Api-Version","2022-11-28")
+                .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
                 .defaultHeader("Authorization", "Bearer " + config.token())  // Remove the colon after Bearer
                 .build();
-        this.objectMapper = objectMapper;
     }
 
     /**
@@ -67,10 +66,10 @@ public class GitHubService {
     /**
      * Recursively downloads the contents of a repository directory.
      *
-     * @param owner           The owner of the repository.
-     * @param repo            The name of the repository.
-     * @param path            The path within the repository to download.
-     * @param contentBuilder  The StringBuilder to append the content to.
+     * @param owner          The owner of the repository.
+     * @param repo           The name of the repository.
+     * @param path           The path within the repository to download.
+     * @param contentBuilder The StringBuilder to append the content to.
      * @throws IOException If an I/O error occurs.
      */
     private void downloadContentsRecursively(String owner, String repo, String path, StringBuilder contentBuilder) throws IOException {
@@ -149,7 +148,8 @@ public class GitHubService {
         return restClient.get()
                 .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
                 .retrieve()
-                .body(new ParameterizedTypeReference<List<GitHubContent>>() {});
+                .body(new ParameterizedTypeReference<List<GitHubContent>>() {
+                });
     }
 
     /**
@@ -165,7 +165,7 @@ public class GitHubService {
                 .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
                 .retrieve()
                 .body(GitHubContent.class);
-        String cleanedString = response.content().replaceAll("[^A-Za-z0-9+/=]", "");
+        String cleanedString = response != null ? response.content().replaceAll("[^A-Za-z0-9+/=]", "") : null;
         return new String(Base64.getDecoder().decode(cleanedString));
     }
 }

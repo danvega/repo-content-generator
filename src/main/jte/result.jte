@@ -1,12 +1,22 @@
-@param String content
+@param dev.danvega.cg.ContentGenerationResponse response
 
 <div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
     <div class="relative">
+        <div class="flex gap-4 mb-4">
+            <div class="flex-1 bg-white p-3 rounded-lg border border-gray-200">
+                <div class="text-sm text-gray-600">Bytes</div>
+                <div class="text-lg font-semibold">${response.byteCount()}</div>
+            </div>
+            <div class="flex-1 bg-white p-3 rounded-lg border border-gray-200">
+                <div class="text-sm text-gray-600">Tokens</div>
+                <div class="text-lg font-semibold">${response.tokenCount()}</div>
+            </div>
+        </div>
         <textarea
                 id="result"
                 class="w-full h-96 p-4 font-mono text-sm bg-white rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                 readonly
-        >${content}</textarea>
+        >${response.content()}</textarea>
 
         <button
                 onclick="copyContent()"

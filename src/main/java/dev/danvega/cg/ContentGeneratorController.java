@@ -1,7 +1,5 @@
 package dev.danvega.cg;
 
-import dev.danvega.cg.gh.GitHubService;
-import dev.danvega.cg.local.LocalFileService;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
 import org.slf4j.Logger;
@@ -14,19 +12,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.util.Map;
-
 @Controller
 public class ContentGeneratorController {
     private static final Logger log = LoggerFactory.getLogger(ContentGeneratorController.class);
-    private final GitHubService ghService;
-    private final LocalFileService localFileService;
     private final TemplateEngine templateEngine;
     private final ContentGeneratorService contentGeneratorService;
 
-    public ContentGeneratorController(GitHubService ghService, LocalFileService localFileService, TemplateEngine templateEngine, ContentGeneratorService contentGeneratorService) {
-        this.ghService = ghService;
-        this.localFileService = localFileService;
+    public ContentGeneratorController(TemplateEngine templateEngine,
+                                      ContentGeneratorService contentGeneratorService) {
         this.templateEngine = templateEngine;
         this.contentGeneratorService = contentGeneratorService;
     }
@@ -39,22 +32,23 @@ public class ContentGeneratorController {
     @PostMapping("/generate")
     @ResponseBody
     public ResponseEntity<String> generate(@RequestParam(required = false) String githubUrl,
-                                                 @RequestParam(required = false) String localPath) {
+                                           @RequestParam(required = false) String localPath) {
 
         if ((githubUrl == null || githubUrl.isBlank()) && (localPath == null || localPath.isBlank())) {
             return ResponseEntity.badRequest().body("Error: Either GitHub URL or local path must be provided.");
         }
 
-
         try {
-            String content = contentGeneratorService.generateContent(githubUrl, localPath);
+            var generationResponse = contentGeneratorService.generateContent(githubUrl, localPath);
             StringOutput output = new StringOutput();
-            templateEngine.render("result.jte", Map.of("content", content), output);
+            templateEngine.render("result.jte", generationResponse, output);
             return ResponseEntity.ok(output.toString());
         } catch (Exception e) {
             log.error("Error generating content", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error generating content: " + e.getMessage());
         }
     }
+
+
 }
 
